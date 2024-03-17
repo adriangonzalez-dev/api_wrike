@@ -1,6 +1,6 @@
 import 'dotenv/config'
 
-type env_key = 'PORT' | 'TOKEN_WRIKE'
+type env_key = 'PORT' | 'TOKEN_WRIKE' | 'ID_CLIENT_WRIKE' | 'SECRET_KEY' | 'REDIRECT_URI'
 
 export class Environment {
     private readonly env: NodeJS.ProcessEnv

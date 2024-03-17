@@ -1,41 +1,54 @@
-import express from 'express'
-import { Environment } from './config/environment';
-import { apiWrike } from './config/wrike_api';
+import express, { Request, Response } from 'express';
+import axios from 'axios';
+import querystring from 'querystring';
 
-interface Space {
-    id: string,
-    title: string,
-    avatarUrl: string,
-    accessType: string,
-    archived: boolean,
-    guestRoleId: string,
-    defaultProjectWorkflowId: string,
-    defaultTaskWorkflowId: string
-}
+const app = express();
 
-interface Task{
-    id: string,
-    accountId: string,
-    title: string,
-    status: string,
-    importance: string,
-    createdDate: string,
-    updatedDate: string,
-    completedDate: string,
-    dates: { type: string },
-    scope: string,
-    customStatusId: string,
-    permalink: string,
-    priority: string
+const CLIENT_ID = 'nd7vTE9m';
+const CLIENT_SECRET = '6yok6QzfG6TEGQxt9wMFZcGTX1qMCDcCSoVkGpc0PhUmGwfaV5d3aQfG6H4iadBj';
+const REDIRECT_URI = 'http://localhost:3000/callback'; // Debes configurar esto en tu aplicación de Wrike
+
+app.get('/login', (req: Request, res: Response) => {
+  const queryParams = querystring.stringify({
+    response_type: 'code',
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+  });
+  res.redirect(`https://login.wrike.com/oauth2/authorize/v4?${queryParams}`);
+});
+
+app.get('/callback', async (req: Request, res: Response) => {
+  const { code } = req.query;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).send('Código de autorización no proporcionado');
   }
 
-(async ()=> {
-    /* const {data} = await apiWrike.get('/folders?plainTextCustomFields=true')
-    console.log(data.data[400]) */
-    const {data} = await apiWrike.get('/folders/IEADNB5OI4TDMIPV')
-    const resp = data.data.filter((item:Space) => item.title == 'McDonalds')
-    console.log(resp)
+  try {
+    const tokenResponse = await axios.post<{
+      access_token: string;
+      token_type: string;
+      expires_in: number;
+      refresh_token: string;
+    }>('https://login.wrike.com/oauth2/token', {
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: REDIRECT_URI,
+    });
 
-    /* const {data} = await apiWrike.get('/spaces/IEADNB5OI4OKKNPE/tasks')
-    console.log(data.data.filter((item:Task)=>item.title.includes('[CONTENIDO][PA]'))) */
-})()
+    const accessToken = tokenResponse.data.access_token;
+    console.log(accessToken)
+    // Aquí puedes guardar el accessToken en la sesión o en la base de datos para usarlo posteriormente
+
+    res.json('Autorización exitosa! Token de acceso: ' + accessToken);
+  } catch (error:any) {
+    console.error('Error al obtener token de acceso:', error.response?.data || error.message);
+    res.status(500).send('Error al obtener token de acceso');
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+});
